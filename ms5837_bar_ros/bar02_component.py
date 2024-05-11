@@ -5,7 +5,7 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import FluidPressure
 from sensor_msgs.msg import Temperature
 from std_msgs.msg import Float32
-
+from custom_interfaces.msg import Depthm
 from rcl_interfaces.msg import SetParametersResult
 
 from . import ms5837
@@ -18,7 +18,7 @@ class BarComponentr:
         
         # self.sensor = ms5837.MS5837_30BA() # Default I2C bus is 1 (Raspberry Pi 3)
         #self.sensor = ms5837.MS5837_30BA(0) # Specify I2C bus
-        self.sensor = ms5837.MS5837_02BA()
+        self.sensor = ms5837.MS5837_02BA(bus=7)
         #self.sensor = ms5837.MS5837_02BA(0)
         #self.sensor = ms5837.MS5837(model=ms5837.MS5837_MODEL_30BA, bus=0) # Specify model and bus
 
@@ -127,7 +127,7 @@ class BarNode(Node):
         super().__init__('bar02_node')
         self.pub_pressure = self.create_publisher(Float32, 'bar02/pressure', 10)
         self.pub_temp = self.create_publisher(Float32, 'bar02/temperature', 10)
-        self.pub_depth = self.create_publisher(Float32, 'bar02/depth', 10)
+        self.pub_depth = self.create_publisher(Depthm, 'bar02/depth', 10)
         self.pub_odom = self.create_publisher(Odometry, 'bar02/odom', 10)
 
 
@@ -138,7 +138,7 @@ class BarNode(Node):
 
         self.msg_pressure = Float32()
         self.msg_temp = Float32()
-        self.msg_depth = Float32()
+        self.msg_depth = Depthm()
         self.msg_odom = Odometry()
 
         self.init_fresh, self.init_salt = self.ms5837_data.depth_init_error()
@@ -165,18 +165,18 @@ class BarNode(Node):
         # TODO me
         ajust_depth = 0.1 # meter
 
-        #self.msg_depth.data = round(fresh_depth, 3)
-        self.msg_depth.data = round(depth_data - ajust_depth - self.init_fresh, 3)
-        depth_data_mm = round(self.msg_depth.data*1000, 3)
+        #self.msg_depth.depth_m = round(fresh_depth, 3)
+        self.msg_depth.depth_m = round(depth_data - ajust_depth - self.init_fresh, 3)
+        depth_data_mm = round(self.msg_depth.depth_m*1000, 3)
 
         self.msg_odom.header.stamp = self.get_clock().now().to_msg()
         self.msg_odom.header.frame_id = "bar02_link"
         #self.msg_odom.child_frame_id = ""
-        self.msg_odom.pose.pose.position.z = - self.msg_depth.data
+        self.msg_odom.pose.pose.position.z = - self.msg_depth.depth_m
 
         # self.get_logger().info('Pressure : {} hpa'.format(self.msg_pressure.data))
         # self.get_logger().info('Temperature :{} C'.format(self.msg_temp.data))
-        # self.get_logger().info('Fresh Detph :{} m  {} mm'.format(self.msg_depth.data, depth_data_mm))
+        # self.get_logger().info('Fresh Detph :{} m  {} mm'.format(self.msg_depth.depth_m, depth_data_mm))
         
         self.pub_pressure.publish(self.msg_pressure)
         self.pub_temp.publish(self.msg_temp)
